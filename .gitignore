@@ -12,3 +12,5 @@ runs/
 *.avi
 *.mov
 *.mkv
+
+./samples/*
