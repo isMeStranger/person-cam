@@ -84,8 +84,10 @@ Ultralytics PT model (e.g. yolo11n-pose.pt)
   - `--display`/`--no-display`: show preview window (default True)
   - `--output`: save annotated video to path
   - `--telemetry`/`--no-telemetry`: print per-frame box/conf/keypoint data (default True)
+  - `--skip N`: process every Nth frame (0=all, 1=every other, etc.). Higher = less load, higher FPS.
 - `parse_source()`: converts `"0"` → `0` (int for webcam), else leaves as str.
 - `run_detector()`: main loop — opens capture, loads NCNN model, reads frames, calls `ncnn_model()`, annotates via `result.plot()`, draws FPS overlay, optionally writes to file and/or displays window.
+  - Display window is auto-sized to half the screen dimensions (via `win32api.GetSystemMetrics` + `cv2.resize`), preserving aspect ratio.
 - Press `q` to quit the preview window.
 - Uses `cv2.VideoWriter_fourcc(*"mp4v")` for output.
 
@@ -107,7 +109,7 @@ Ultralytics PT model (e.g. yolo11n-pose.pt)
 
 ### Inference conventions
 - Model is called with `verbose=False` to suppress ultralytics logging per frame.
-- FPS is computed as `frame_count / elapsed_since_start` (not rolling average).
+- FPS is computed as `processed_count / elapsed_since_start` (not rolling average).
 - `result.plot()` returns a BGR numpy array ready for OpenCV display.
 - Telemetry prints: `Detected Target | Box: [x1,y1,x2,y2] | Conf: 0.XX | Keypoints: N`.
 

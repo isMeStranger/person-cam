@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import win32api
+
 from person_cam.runtime import configure_runtime_dirs
 
 configure_runtime_dirs()
@@ -65,6 +67,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Print detected boxes and confidence values.",
     )
+    parser.add_argument(
+        "--skip",
+        type=int,
+        default=0,
+        help="Process every Nth frame. 0=process all. Higher = less load, higher FPS.",
+    )
     return parser.parse_args()
 
 
@@ -123,48 +131,70 @@ def run_detector(args: argparse.Namespace) -> int:
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     writer = open_writer(args.output, fps, width, height)
 
+    step = args.skip + 1
+
+    target_w = win32api.GetSystemMetrics(0) // 2
+    target_h = win32api.GetSystemMetrics(1) // 2
+    display_scale = min(target_w / width, target_h / height)
+    display_w = int(width * display_scale)
+    display_h = int(height * display_scale)
+
     print("NCNN model loaded successfully. Beginning inference loop...")
     print("Press 'q' in the preview window to quit.")
 
     frame_count = 0
+    processed_count = 0
+    annotated_frame = None
     started_at = time.perf_counter()
 
     try:
+        if args.display:
+            cv2.namedWindow("Local NCNN Live Broadcast Simulation", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("Local NCNN Live Broadcast Simulation", display_w, display_h)
+
         while cap.isOpened():
             success, frame = cap.read()
             if not success:
                 break
 
-            results = ncnn_model(
-                frame,
-                imgsz=args.imgsz,
-                verbose=False,
-                conf=args.conf,
-            )
-            result = results[0]
-            annotated_frame = result.plot()
-
             frame_count += 1
-            elapsed = max(time.perf_counter() - started_at, 1e-9)
-            cv2.putText(
-                annotated_frame,
-                f"FPS: {frame_count / elapsed:.1f}",
-                (12, 28),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (50, 255, 50),
-                2,
-                cv2.LINE_AA,
-            )
+            should_process = (frame_count - 1) % step == 0
 
-            if args.telemetry:
-                log_telemetry(result)
+            if should_process:
+                results = ncnn_model(
+                    frame,
+                    imgsz=args.imgsz,
+                    verbose=False,
+                    conf=args.conf,
+                )
+                result = results[0]
+                annotated_frame = result.plot()
+                processed_count += 1
 
-            if writer is not None:
-                writer.write(annotated_frame)
+                if args.telemetry:
+                    log_telemetry(result)
+
+                if writer is not None:
+                    writer.write(annotated_frame)
 
             if args.display:
-                cv2.imshow("Local NCNN Live Broadcast Simulation", annotated_frame)
+                elapsed = max(time.perf_counter() - started_at, 1e-9)
+                if annotated_frame is not None:
+                    vis_frame = annotated_frame.copy()
+                else:
+                    vis_frame = frame.copy()
+                cv2.putText(
+                    vis_frame,
+                    f"FPS: {processed_count / elapsed:.1f}",
+                    (12, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (50, 255, 50),
+                    2,
+                    cv2.LINE_AA,
+                )
+                display_frame = cv2.resize(vis_frame, (display_w, display_h))
+                cv2.imshow("Local NCNN Live Broadcast Simulation", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
     finally:
@@ -174,7 +204,7 @@ def run_detector(args: argparse.Namespace) -> int:
         if args.display:
             cv2.destroyAllWindows()
 
-    print(f"Processed {frame_count} frames.")
+    print(f"Processed {processed_count} frames ({frame_count} total read).")
     return 0
 
 
