@@ -1,0 +1,23 @@
+[project]
+name = "person-cam"
+version = "0.1.0"
+description = "Local YOLO11 pose detector using Ultralytics NCNN runtime."
+readme = "readme.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ultralytics",
+    "ncnn",
+    "pnnx",
+    "opencv-python",
+]
+
+[project.scripts]
+person-cam-export = "person_cam.export_model:main"
+person-cam-detect = "person_cam.detector:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

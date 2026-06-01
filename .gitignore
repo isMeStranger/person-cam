@@ -1,0 +1,14 @@
+.venv/
+.runtime/
+Ultralytics/
+__pycache__/
+*.py[cod]
+
+yolo11n-pose.pt
+yolo11n-pose_ncnn_model/
+runs/
+
+*.mp4
+*.avi
+*.mov
+*.mkv
